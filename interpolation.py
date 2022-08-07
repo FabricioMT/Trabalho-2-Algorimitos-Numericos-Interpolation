@@ -1,13 +1,9 @@
+from math import ceil
 import sys
 import numpy as np
-from math import sqrt
 from os import listdir
-from datetime import timedelta
 import matplotlib.pyplot as plt
-from timeit import default_timer as timer
-from typing import Tuple, List
 import bisect
-from scipy.interpolate import CubicSpline, interp1d
 
 def readArgs():
     if len(sys.argv) == 2:
@@ -33,48 +29,28 @@ def readFile(inputs):
     y = np.loadtxt(fname=inputs, dtype=np.float64, delimiter=' ', usecols=(1))
     return x, y
 
-def jacobi(A,B,precision):
-    start = timer()
-    dimensionM = A.shape[0]
-    x = np.zeros(dimensionM)
+def CalcH(x): return [x[i+1] - x[i] for i in range(len(x) - 1)]
 
-    DiagA = np.diagflat(np.diag(A))
-    C = A - np.diagflat(np.diag(A))
-    x0 = DiagA/B
-    x0 = np.diag(x0)
-    x0 = x0.astype(np.double)
+def CalcD(n, h, y):
+    d0 = [0]
+    dn = [0]
+    D = d0 + [6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]) / (h[i] + h[i-1]) for i in range(1, n - 1)] + dn
+    return D
 
-    D = precision + 1
-    while (D > precision):  
-        for i in np.arange(dimensionM):  
-            x[i] = B[i]
-            for j in np.concatenate((np.arange(0,i),np.arange(i+1,dimensionM))):
-                x[i] -= A[i,j]*x0[j]
-            x[i] /= A[i,i]
+def tridiagonalMatrix(n, h):
 
-        d = np.linalg.norm(x-x0,np.inf)
-        D = d/max(np.fabs(x))
-
-        if (D < precision):
-            end = timer()
-            timing = timedelta(seconds=end-start)
-            print(f"\nTempo de execução [Jacobi]: {timing}\n")
-            return x
-        x0 = np.copy(x)
-
-def compute_changes(x: List[float]) -> List[float]: 
-    return [x[i+1] - x[i] for i in range(len(x) - 1)]
-
-def create_tridiagonalmatrix(n: int, h: List[float]) -> Tuple[List[float], List[float], List[float]]:
     A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
     B = [2] * n
     C = [0] + [h[i + 1] / (h[i] + h[i + 1]) for i in range(n - 2)]
     return A, B, C
 
-def create_target(n: int, h: List[float], y: List[float]):
-    return [0] + [6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]) / (h[i] + h[i-1]) for i in range(1, n - 1)] + [0]
+def matrixTridiag(n, h):
+    A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
+    B = [2] * n
+    C = [0] + [h[i + 1] / (h[i] + h[i + 1]) for i in range(n - 2)]
+    return A, B, C
 
-def solve_tridiagonalsystem(A: List[float], B: List[float], C: List[float], D: List[float]):
+def resolveTridiag(A, B, C, D):
     c_p = C + [0]
     d_p = [0] * len(B)
     X = [0] * len(B)
@@ -91,53 +67,40 @@ def solve_tridiagonalsystem(A: List[float], B: List[float], C: List[float], D: L
 
     return X
 
-def compute_spline(x: List[float], y: List[float]):
-    n = len(x)
-    if n < 3:
-        raise ValueError('Too short an array')
-    if n != len(y):
-        raise ValueError('Array lengths are different')
+def resolveSpline(n,y,H):
+    a,b,c = tridiagonalMatrix(n,H)
+    d = CalcD(n,H,y)
+    S = resolveTridiag(a, b, c, d)
+    coef = [[(S[i+1]-S[i])*H[i]*H[i]/6, S[i]*H[i]*H[i]/2, (y[i+1] - y[i] - (S[i+1]+2*S[i])*H[i]*H[i]/6), y[i]] for i in range(n-1)]
 
-    h = compute_changes(x)
-    if any(v < 0 for v in h):
-        raise ValueError('X must be strictly increasing')
+    return coef
 
-    A, B, C = create_tridiagonalmatrix(n, h)
-    D = create_target(n, h, y)
-
-    M = solve_tridiagonalsystem(A, B, C, D)
-
-    coefficients = [[(M[i+1]-M[i])*h[i]*h[i]/6, M[i]*h[i]*h[i]/2, (y[i+1] - y[i] - (M[i+1]+2*M[i])*h[i]*h[i]/6), y[i]] for i in range(n-1)]
-
-    def spline(val):
-        idx = min(bisect.bisect(x, val)-1, n-2)
-        z = (val - x[idx]) / h[idx]
-        C = coefficients[idx]
-        return (((C[0] * z) + C[1]) * z + C[2]) * z + C[3]
-
-    return spline
+def retPoli(x,n, coef, val):
+    H = CalcH(x)
+    idx = min(bisect.bisect(x, val)-1, n-2)
+    z = (val - x[idx]) / H[idx]
+    C = coef[idx]
+    return (((C[0] * z) + C[1]) * z + C[2]) * z + C[3]
 
 if __name__ == '__main__':
     inputs = readArgs()
     x, y = readFile(inputs)
+    n = len(x)
+    H = CalcH(x)
+    coef = resolveSpline(n,y,H)
 
-#plot
-    fig, ax = plt.subplots()
+    for i in range(0,n-1): print(f'S{i}:',coef[i])
 
-    ax.plot(x, y,'.-')
+    X = [i for i in np.arange(0, 10, 0.01)]
+    Y = [retPoli(x,n,coef,y) for y in X]
 
-    ax.set(xlim=(0, 10), xticks=np.arange(0, 11),
-            ylim=(0, 10), yticks=np.arange(0, 11))
-    plt.show()  
-       
-    spline = compute_spline(x, y)
 
-    for i, k in enumerate(x):
-        assert abs(y[i] - spline(k)) < 1e-8, f'Error at {k}, {y[i]}'
-
-    x_vals = [v / 10 for v in range(0, 50, 1)]
-    y_vals = [spline(j) for j in x_vals]
-
-    plt.plot(x_vals, y_vals)
+    plt.plot(x, y,'o-')
+    plt.plot(X, Y,'-')
+    plt.legend()
     plt.show()
+    
+
+
+
 
