@@ -1,9 +1,8 @@
-from math import ceil
 import sys
+import bisect
 import numpy as np
 from os import listdir
 import matplotlib.pyplot as plt
-import bisect
 
 def readArgs():
     if len(sys.argv) == 2:
@@ -37,13 +36,6 @@ def CalcD(n, h, y):
     D = d0 + [6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]) / (h[i] + h[i-1]) for i in range(1, n - 1)] + dn
     return D
 
-def tridiagonalMatrix(n, h):
-
-    A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
-    B = [2] * n
-    C = [0] + [h[i + 1] / (h[i] + h[i + 1]) for i in range(n - 2)]
-    return A, B, C
-
 def matrixTridiag(n, h):
     A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
     B = [2] * n
@@ -68,7 +60,7 @@ def resolveTridiag(A, B, C, D):
     return X
 
 def resolveSpline(n,y,H):
-    a,b,c = tridiagonalMatrix(n,H)
+    a,b,c = matrixTridiag(n,H)
     d = CalcD(n,H,y)
     S = resolveTridiag(a, b, c, d)
     coef = [[(S[i+1]-S[i])*H[i]*H[i]/6, S[i]*H[i]*H[i]/2, (y[i+1] - y[i] - (S[i+1]+2*S[i])*H[i]*H[i]/6), y[i]] for i in range(n-1)]
@@ -94,13 +86,8 @@ if __name__ == '__main__':
     X = [i for i in np.arange(0, 10, 0.01)]
     Y = [retPoli(x,n,coef,y) for y in X]
 
+    plt.plot(x, y,'o-', color='orange')
+    plt.plot(X, Y,'-b')
 
-    plt.plot(x, y,'o-')
-    plt.plot(X, Y,'-')
-    plt.legend()
+    plt.legend(['Linear','Cubic Spline'])
     plt.show()
-    
-
-
-
-
