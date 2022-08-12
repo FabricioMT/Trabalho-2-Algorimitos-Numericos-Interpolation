@@ -9,6 +9,14 @@ def readArgs():
         arq = 0
         amplitude = float(sys.argv[2])
         file_input = listdir('./inputs/')
+        
+        if amplitude > 2:
+            pass
+        else:
+            print("Amplitude muito baixa !")
+            amplitude = 2
+            print("Amplitude set default = 2.")
+        
         for file in file_input:
             if file == sys.argv[1]:
                 arq = 'inputs/' + sys.argv[1]
@@ -19,12 +27,7 @@ def readArgs():
         if arq == 0:
             print("Arquivo não encontrado nos Inputs ou Arquivo com nome Inválido !")
             exit(1) 
-        if amplitude > 2:
-            pass
-        else:
-            print("Amplitude muito baixa !")
-            amplitude = 2
-            print("Amplitude set default = 2.")
+
     else:
         print("Entrada de Dados Inválida !")
         exit(1)
