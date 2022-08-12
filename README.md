@@ -10,4 +10,4 @@ Arg[3] = amplitude selecionavel
 
 Valores mais altos no Arq[3] proporciona amplitude menor.
 
-python interpolation.py grupo1.dat 13
+python interpolation.py grupo1.dat 2
