@@ -5,8 +5,9 @@ from os import listdir
 import matplotlib.pyplot as plt
 
 def readArgs():
-    if len(sys.argv) == 2:
+    if len(sys.argv) >= 2:
         arq = 0
+        amplitude = float(sys.argv[2])
         file_input = listdir('./inputs/')
         for file in file_input:
             if file == sys.argv[1]:
@@ -18,10 +19,16 @@ def readArgs():
         if arq == 0:
             print("Arquivo não encontrado nos Inputs ou Arquivo com nome Inválido !")
             exit(1) 
+        if amplitude > 2:
+            pass
+        else:
+            print("Amplitude muito baixa !")
+            amplitude = 2
+            print("Amplitude set default = 2.")
     else:
         print("Entrada de Dados Inválida !")
         exit(1)
-    return arq
+    return arq, amplitude
 
 def readFile(inputs):
     x = np.loadtxt(fname=inputs, dtype=np.float64, delimiter=' ', usecols=(0))
@@ -36,9 +43,9 @@ def CalcD(n, h, y):
     D = d0 + [6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]) / (h[i] + h[i-1]) for i in range(1, n - 1)] + dn
     return D
 
-def matrixTridiag(n, h):
+def matrixTridiag(amp,n, h):
     A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
-    B = [2] * n
+    B = [amp] * n
     C = [0] + [h[i + 1] / (h[i] + h[i + 1]) for i in range(n - 2)]
     return A, B, C
 
@@ -59,13 +66,14 @@ def resolveTridiag(A, B, C, D):
 
     return X
 
-def resolveSpline(n,y,H):
-    a,b,c = matrixTridiag(n,H)
+def resolveSpline(amp,n,y,H):
+    a,b,c = matrixTridiag(amp,n,H)
     d = CalcD(n,H,y)
     S = resolveTridiag(a, b, c, d)
     coef = [[(S[i+1]-S[i])*H[i]*H[i]/6, S[i]*H[i]*H[i]/2, (y[i+1] - y[i] - (S[i+1]+2*S[i])*H[i]*H[i]/6), y[i]] for i in range(n-1)]
 
     return coef
+
 
 def retPoli(x,n, coef, val):
     H = CalcH(x)
@@ -75,11 +83,14 @@ def retPoli(x,n, coef, val):
     return (((C[0] * z) + C[1]) * z + C[2]) * z + C[3]
 
 if __name__ == '__main__':
-    inputs = readArgs()
+    inputs, amplitude = readArgs()
+
     x, y = readFile(inputs)
     n = len(x)
     H = CalcH(x)
-    coef = resolveSpline(n,y,H)
+    amp = amplitude
+
+    coef = resolveSpline(amp,n,y,H)
 
     for i in range(0,n-1): print(f'S{i}:',coef[i])
 
